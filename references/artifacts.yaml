@@ -522,7 +522,7 @@
         "checks are unique one-line commands without backticks",
         "parallel_checks names at least two of the checks, each once: they may run at the same time (none writes tracked or shared files, shares a port, lock, or server, or needs another check's result); every other check runs alone",
         "worker_steps names plan steps, each once: each is applied by one b-worker while the main session waits, and recorded with --by; every other step is applied by the main session",
-        "parallel_steps names at least two worker steps, each once: each runs in its own git worktree at the same time as the others that are ready (two at most per batch), so their paths are literal and pairwise disjoint (none equal to or inside another's), and at least two of them can be ready together; every other worker step runs alone, in place"
+        "parallel_steps is retired (ADR-042): new data is refused; an older recorded plan that holds it still validates and renders"
       ],
       "fields": {
         "steps": {

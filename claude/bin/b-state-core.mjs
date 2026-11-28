@@ -23,9 +23,8 @@ export function helperDir(env = process.env) {
   return value.replace(/\/+$/, "") || DEFAULT_HELPER_DIR;
 }
 
-// Pi runs the helpers when a runtime overrides the wrapper folder. Pi has no Codex gate,
-// uses PI_SESSION_ID for locks, and launches parallel b-worker steps through one parallel
-// workflow call. b_run_lib.py mirrors it as on_pi().
+// Pi runs the helpers when a runtime overrides the wrapper folder. Pi has no Codex gate
+// and uses PI_SESSION_ID for locks. b_run_lib.py mirrors it as on_pi().
 export function onPi(env = process.env) {
   return helperDir(env) !== DEFAULT_HELPER_DIR;
 }

@@ -69,7 +69,8 @@ mkdir -p "$nogit"
 for help_arg in --help -h help; do
   ok "$nogit" s1 "$help_arg"
   grep -Fq 'b-agentic/bin/b-state' <<<"$out" || fail "help ($help_arg) must name the b-state wrapper: $out"
-  grep -Fq 'worktree add|collect|remove' <<<"$out" || fail "help ($help_arg) must list every command: $out"
+  grep -Fq 'lock [--takeover] | unlock' <<<"$out" || fail "help ($help_arg) must list every command: $out"
+  ! grep -Fq 'worktree add' <<<"$out" || fail "help ($help_arg) must list no worktree command: $out"
 done
 state_hash() { sha256sum "$(sfile "$repo")" | cut -d' ' -f1; }
 before=$(state_hash)
@@ -117,6 +118,11 @@ invalid "$repo" s2 status      # s1 holds the lock: the name is still judged fir
 grep -Fq 'unknown command: status; commands: init, show, approve' "$work/err" || fail "unknown command must list the commands: $(cat "$work/err")"
 invalid "$repo" s1
 grep -Fq 'missing command; commands: init, show' "$work/err" || fail "missing command must list the commands: $(cat "$work/err")"
+# The retired parallel-step command is an unknown command like any other (ADR-042).
+for action in add collect remove; do
+  invalid "$repo" s1 worktree "$action" S-1
+  grep -Eq 'unknown command: worktree; commands: .*unlock; --help' "$work/err" || fail "worktree $action must be an unknown command: $(cat "$work/err")"
+done
 invalid "$nogit" s1 status     # outside git it is a usage error too, not a refusal
 [ ! -e "$(dirname "$(sfile "$repo")")/mutex" ] || fail "an unknown command must leave no mutex"
 [ "$before" = "$(state_hash)" ] || fail "an unknown command must not change the state"
@@ -152,6 +158,13 @@ B_AGENTIC_HELPER_DIR='x; rm -rf y' ok "$repo" s1 check
   || fail "the approval entry must carry the phases and the spec hash"
 [ "$(jq -r '.ac | keys | join(",")' "$(sfile "$repo")")" = "AC-1,AC-2" ] || fail "AC ids"
 [ "$(jq -r '.spec.plan_sha256 | length' "$(sfile "$repo")")" = 64 ] || fail "the plan hash must be recorded at approval"
+# A history entry written for a parallel step before ADR-042 still loads.
+cp "$(sfile "$repo")" "$work/repo-state-before-flag.json"
+jq '.history[1].detail.worktree = true' "$work/repo-state-before-flag.json" >"$(sfile "$repo")"
+ok "$repo" s1 show
+[ "$(jq -r '.history[1].detail.worktree' <<<"$out")" = true ] || fail "an old worktree flag must stay in the history: $out"
+ok "$repo" s1 check
+cp "$work/repo-state-before-flag.json" "$(sfile "$repo")"
 
 # --- another session cannot write while the lock is held ----------------------
 refused "$repo" s2 advance implement

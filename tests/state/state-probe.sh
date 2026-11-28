@@ -13,7 +13,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # stats is by far the longest shard, so it starts first: started late, it would stretch the whole run.
-cases=(stats core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi budget)
+cases=(stats core commit-gates checks commit-plan artifacts steps quick worker owner pi budget)
 
 if [ "$#" -eq 0 ]; then
   jobs_cap=${STATE_PROBE_JOBS:-2}

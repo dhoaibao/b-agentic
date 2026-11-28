@@ -263,9 +263,6 @@ export const parallelChecks = (art) =>
 // The plan steps the approval hands to a worker (ADR-015).
 export const workerSteps = (art) => art.artifacts.plan?.worker_steps ?? [];
 
-// The worker steps that may run at the same time, each in its own worktree (ADR-016).
-export const parallelSteps = (art) => art.artifacts.plan?.parallel_steps ?? [];
-
 export const CANDIDATE_MOVED = "the candidate changed while the check ran";
 
 // The plan steps not yet recorded as applied, in plan order.

@@ -32,7 +32,7 @@ approved vendor installers write outside `~/.pi/agent`.
 ## What ships from this folder
 
 - `bin/b-state`, `bin/b-run`, `bin/b-snapshot`: wrappers that set `B_AGENTIC_HELPER_DIR` to `~/.pi/agent/b-agentic/bin`, so the
-  shared run helpers print Pi paths and take the Pi rules (`b-worker` and worktree steps per
+  shared run helpers print Pi paths and take the Pi rules (`b-worker` steps per
   [ADR-031](../docs/decisions/ADR-031-pi-worker-steps.md), review gate `reviewer` only), and
   run the Node helpers with bare `node`. `PI_SESSION_ID` is the lock owner.
 - The shared helpers from `claude/bin`, with the run CLI's checked-hash bytecode that the installer builds into

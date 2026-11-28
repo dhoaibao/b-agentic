@@ -136,7 +136,7 @@ run "$pathguard" "$(pgw Edit /repo/.b-agentic/runs/20260101-x/state.json)"; expe
 run "$pathguard" "$(pgw Edit /repo/config/.env.production)"; expect 2 "a worker Edit of a likely-secret path must be blocked"
 run "$pathguard" "$(pgw Read /repo/secrets.yaml)"; expect 2 "a worker Read of a secrets file must be blocked"
 run "$pathguard" "$(pgw Write /repo/src/app.ts)"; expect 0 "a worker Write of an ordinary path must pass"
-# A worker of a parallel step works in a worktree outside the repository (ADR-016): the guard matches names, not the repository.
+# The guard matches names, not the repository: a writer in a folder outside it is bound the same way.
 wtdir=/tmp/b-agentic-wt-0123abcd-20261114-x-S-2
 run "$pathguard" "$(pgw Write "$wtdir/.b-agentic/runs/20261114-x/spec.md")"; expect 2 "a worker Write under .b-agentic in a worktree must be blocked"
 guard_guidance "$err" "the worktree .b-agentic refusal"

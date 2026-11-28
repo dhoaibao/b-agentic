@@ -111,7 +111,7 @@ ok "$repoWN" s1 check
 [ "$(jq -c '.next | map(select(startswith("apply ")))' <<<"$out")" = '["apply S-1 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-1","apply S-2 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-2","apply S-3 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-3"]' ] \
   || fail "a plan without worker_steps keeps its next lines: $out"
 grep -Fq 'b-worker' <<<"$out" && fail "a plan without worker_steps never mentions the worker: $out"
-grep -Fq 'worktree' <<<"$out" && fail "a plan without parallel_steps never mentions a worktree: $out"
+jq -e '.next | any(contains("worktree"))' <<<"$out" >/dev/null && fail "a next line never mentions a worktree: $out"
 mkdir -p "$repoWN/src"
 printf 'a\n' >"$repoWN/src/a.txt"
 ok "$repoWN" s1 record step S-1

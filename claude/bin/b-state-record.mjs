@@ -1,5 +1,5 @@
 // The record command of the b-state CLI: check, step, review, QA, criterion and commit results.
-// Imports the core, git, store, gates and worktree modules.
+// Imports the core, git, store and gates modules.
 import { isProtected } from "./b-candidate-snapshot.mjs";
 import {
   AC_ID,
@@ -34,7 +34,6 @@ import {
   missingSteps,
   namedPaths,
   parallelChecks,
-  parallelSteps,
   requireSpecUnchanged,
   sizeMatches,
   STATE_WRITTEN,
@@ -43,7 +42,6 @@ import {
 } from "./b-state-gates.mjs";
 import { gitOr, isAncestor } from "./b-state-git.mjs";
 import { saveState } from "./b-state-store.mjs";
-import { rawChange, runWorktrees, workerChange } from "./b-state-worktree.mjs";
 
 // `capture` is how a step's tree is captured; the probes replace it to change
 // the repository at exactly that point.
@@ -387,14 +385,7 @@ export async function cmdRecord(
       throw refuse(
         `${id} has no step base for the step gate to check: apply it in the main session and record --by main`,
       );
-    // A parallel step's worker had its own worktree: the record is then held to
-    // that worker's change, and the history says so (ADR-016).
-    const trees =
-      by === "worker" && parallelSteps(art).includes(id)
-        ? await runWorktrees(root, state, art.artifacts.plan)
-        : [];
-    const apart = trees.find((w) => w.id === id);
-    const applier = worker ? { by, ...(apart ? { worktree: true } : {}) } : {};
+    const applier = worker ? { by } : {};
     const owed = step.depends_on.filter((dep) => !state.steps[dep]);
     if (owed.length > 0) {
       throw refuse(
@@ -445,22 +436,9 @@ export async function cmdRecord(
           "candidate snapshot is incomplete; resolve the uncovered paths first",
         );
       }
-      // A worktree step is applied by the main session instead, and the counted
-      // refusal then applies to that record: nothing is written here.
-      if (apart)
-        throw refuse(
-          `${snapshot.protected.length} protected path(s) changed in the main tree: apply ${id} yourself and record --by main`,
-        );
       problem = `${snapshot.protected.length} protected path(s) changed`;
     } else {
       delta = await stepDelta(root, state, base.tree, tree, id);
-      // A worktree step stays on its own paths, as worktree collect requires. This
-      // comes before the counted refusals below, so it writes nothing: such a step
-      // is applied by the main session instead.
-      if (apart && delta.outside_step > 0)
-        throw refuse(
-          `${id} changed ${delta.outside_step} path(s) outside its own paths: apply the step yourself and record --by main`,
-        );
       if (delta.protected.length > 0) {
         problem = `${delta.protected.length} protected path(s) changed`;
         tree = "";
@@ -499,18 +477,7 @@ export async function cmdRecord(
         phase: state.phase,
       };
     }
-    // The step gate cannot tell two steps applied together apart, so a worker
-    // of its own worktree is held to its own change: what the main tree gained
-    // since the step base must be exactly what that worker changed. Refused
-    // before any write; the step is then applied by the main session.
-    if (apart) {
-      const theirs = await rawChange(root, base.tree, tree);
-      if ((await workerChange(root, state, apart, base)) !== theirs)
-        throw refuse(
-          `the main-tree change is not ${id}'s worker change: apply what worktree collect printed, or apply the step yourself and record --by main`,
-        );
-    }
-    // Once more just before the write: the comparison above took time.
+    // Once more just before the write: the step gate above took time.
     if ((await currentHead(root)) !== base.head) return notAStep(HEAD_MOVED);
     // The tree as it was when the step was applied: the step's own evidence.
     const fingerprint = snapshot.fingerprint;

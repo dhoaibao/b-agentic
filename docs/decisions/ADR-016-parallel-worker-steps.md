@@ -1,7 +1,9 @@
 # ADR-016: Approved worker steps may run at the same time, each in its own worktree
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-11-14
+- Superseded by: [ADR-042](ADR-042-remove-parallel-worker-steps.md). Parallel worker
+  steps and their worktrees were removed; this record is kept as history.
 - Supersedes: ADR-015 in part (the "In place, one at a time, the main session
   waiting" part, for steps a plan lists in `parallel_steps`, and the kernel sentence
   "one `b-worker` per approved worker step, never peer writers"); it also revisits

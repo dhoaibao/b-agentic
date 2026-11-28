@@ -434,7 +434,8 @@ function validate(state) {
         typeof value === "string" &&
         value.length <= MAX_TEXT &&
         !CONTROL.test(value);
-      // `worktree` is a flag: the step's worker had its own worktree (ADR-016).
+      // `worktree` is a flag in older histories: the step's worker had its own
+      // worktree (ADR-016, retired by ADR-042). It stays accepted so they load.
       const flag = key === "worktree" && value === true;
       if (!HISTORY_DETAIL.includes(key) || !(line || isInt(value) || flag))
         fail("history detail");

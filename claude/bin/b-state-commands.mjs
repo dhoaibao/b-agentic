@@ -1,5 +1,5 @@
 // The init, approve, advance, unblock and check commands of the b-state CLI (ADR-009).
-// Imports the core, git, store, gates, worktree and next modules.
+// Imports the core, git, store, gates and next modules.
 import { execFile } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -35,7 +35,6 @@ import {
   currentFingerprint,
   missingSteps,
   newStepBase,
-  parallelSteps,
   planHash,
   quickProblems,
   requireSpecUnchanged,
@@ -69,7 +68,6 @@ import {
   takeLock,
   writeAtomic,
 } from "./b-state-store.mjs";
-import { runWorktrees } from "./b-state-worktree.mjs";
 
 export async function cmdInit(root, args) {
   const slug = args._[1];
@@ -333,15 +331,6 @@ export async function cmdAdvance(root, dir, state, args) {
     if (owed.length > 0)
       throw refuse(`plan steps not recorded: ${owed.join(", ")}`);
   }
-  // A worker's worktree is not part of the candidate: it is collected or
-  // removed before the evidence rounds start.
-  if (target === "verify" && parallelSteps(art).length > 0) {
-    const left = await runWorktrees(root, state, art.artifacts.plan);
-    if (left.length > 0)
-      throw refuse(
-        `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; collect and record each step, or run ${helperDir()}/b-state worktree remove S-n for each`,
-      );
-  }
   // Entering implement fixes where the first step starts.
   if (target === "implement") {
     state.attempts.step = 0;
@@ -441,21 +430,14 @@ export async function applyTimeStop(root, dir, command, result) {
     : 0;
   if (countedSeconds(state.budget) + live < state.budget.stop_at_s)
     return result;
-  // The stop waits only for a worktree that is known to exist: parallel workers are
-  // still out, and their records need the phase they started in. When the artifacts
-  // or the worktrees cannot be read, the run stops all the same: a stop loses
+  // When the artifacts cannot be read, the run stops all the same: a stop loses
   // nothing, and a skipped one could let the run commit without the user.
   let art;
-  let workersOut = false;
   try {
     art = await artifactsOk(root, state);
-    workersOut =
-      parallelSteps(art).length > 0 &&
-      (await runWorktrees(root, state, art.artifacts.plan)).length > 0;
   } catch {
-    // Nothing is known to be out.
+    // The report then says the open blockers are unknown.
   }
-  if (workersOut) return result;
   block(state, BUDGET_REASON, "user decision");
   saveState(dir, state, "advance");
   return {
@@ -539,13 +521,6 @@ export async function cmdUnblock(root, dir, state, args) {
     requireSpecUnchanged(dir, state);
     const art = await artifactsOk(root, state);
     if (!sizeMatches(state, art)) throw refuse(SIZE_DRIFT);
-    if (parallelSteps(art).length > 0) {
-      const left = await runWorktrees(root, state, art.artifacts.plan);
-      if (left.length > 0)
-        throw refuse(
-          `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; collect and record each step, or run ${helperDir()}/b-state worktree remove S-n for each`,
-        );
-    }
   }
   if (target === "clarify") {
     state.spec = {
@@ -759,8 +734,8 @@ export async function cmdCheck(root, dir, state, args) {
     actions,
     blocked: state.phase === "blocked" ? state.blocked : undefined,
   };
-  // The time stop comes before the next lines: those read git's worktree list, and a
-  // failure there must not refuse a check that is past the mark.
+  // The time stop comes before the next lines: a failure while building them must
+  // not refuse a check that is past the mark.
   const checked = await applyTimeStop(root, dir, "check", result);
   const guided = checked === result ? state : loadState(dir);
   return {

@@ -232,50 +232,6 @@ no_stop "advance done"
 st "$repoBm" s1 check
 no_stop "check on a finished run"
 
-# --- no stop while a parallel worker's worktree exists --------------------------------------
-mkdir -p "$work/wt"
-TMPDIR=$(cd "$work/wt" && pwd -P)
-export TMPDIR
-repoBt="$work/repoBt"
-make_repo "$repoBt"
-ok "$repoBt" s1 init trees
-spec_json 1 'src/**' | br "$repoBt" s1 write spec >/dev/null || fail "write spec (repoBt)"
-jq -n '{steps: [{id: "S-1", action: "a", paths: ["src/a.txt"], done_when: "d", depends_on: []},
-  {id: "S-2", action: "b", paths: ["src/b.txt"], done_when: "d", depends_on: []}],
-  checks: ["make test"], invariants: [], stop_conditions: [], worker_steps: ["S-1", "S-2"], parallel_steps: ["S-1", "S-2"]}' \
-  | br "$repoBt" s1 write plan >/dev/null || fail "write plan (repoBt)"
-ok "$repoBt" s1 approve --commit yes --branch-target current
-ok "$repoBt" s1 advance implement
-ok "$repoBt" s1 worktree add S-1
-expire "$repoBt"
-st "$repoBt" s1 check
-no_stop "check while a worktree exists"
-ok "$repoBt" s1 worktree remove S-1
-st "$repoBt" s1 check
-time_stopped "check after the worktree is removed"
-
-# A worktree list that cannot be read does not skip the stop: a skipped one could let the run commit unasked.
-ok "$repoBt" s1 unblock continue --reason "more time"
-mkdir -p "$repoBt/src"
-printf 'a\n' >"$repoBt/src/a.txt"
-ok "$repoBt" s1 record step S-1 --by main
-printf 'b\n' >"$repoBt/src/b.txt"
-ok "$repoBt" s1 record step S-2 --by main
-ok "$repoBt" s1 advance verify
-expire "$repoBt"
-mkdir -p "$work/shim"
-# shellcheck disable=SC2016 # The shim's own variables expand when it runs.
-printf '#!/bin/sh\nif [ "$1 $2" = "worktree list" ]; then exit 1; fi\nexec "%s" "$@"\n' "$(command -v git)" >"$work/shim/git"
-chmod +x "$work/shim/git"
-PATH="$work/shim:$PATH" st "$repoBt" s1 record check --cmd "make test" --exit 0
-time_stopped "record check with an unreadable worktree list"
-# check reads the worktree list again for its next lines, which must not come before the stop.
-ok "$repoBt" s1 unblock continue --reason "more time"
-expire "$repoBt"
-PATH="$work/shim:$PATH" st "$repoBt" s1 check
-time_stopped "check with an unreadable worktree list"
-jq -e '.next | any(startswith("report to the user: "))' <<<"$out" >/dev/null || fail "the stopped check must still report: $out"
-
 # A check by a session that does not hold the lock takes it with the stop it made.
 repoBk="$work/repoBk"
 to_verify "$repoBk"

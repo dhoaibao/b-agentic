@@ -18,7 +18,7 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-013](ADR-013-concurrent-plan-checks.md) for plan checks that may run together, and
 [ADR-014](ADR-014-checked-plan-steps.md) for plan steps checked when they are recorded, and
 [ADR-015](ADR-015-step-writer-worker.md) for one writer subagent applying an approved plan step, and
-[ADR-016](ADR-016-parallel-worker-steps.md) for approved worker steps running at the same time, each in its own worktree, and
+[ADR-016](ADR-016-parallel-worker-steps.md) for the superseded parallel worker steps, each in its own worktree, and
 [ADR-017](ADR-017-bun-hook-runtime.md) for the managed hooks and status line running under Bun with Node as the fallback, and
 [ADR-018](ADR-018-bun-only-runtime.md) for Bun as the only runtime for Claude Code, superseding ADR-017, and
 [ADR-019](ADR-019-opencode-second-runtime.md) for OpenCode as the second runtime in place of Pi, superseding ADR-011, and
@@ -43,7 +43,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-038](ADR-038-required-blocker-analytics.md) for requiring the class and escaped stage on each new blocker, superseding ADR-010 in part, and
 [ADR-039](ADR-039-run-time-budget-stop.md) for stopping a run on a time budget until the user decides, refining ADR-009 and ADR-035, and
 [ADR-040](ADR-040-precompiled-run-cli.md) for shipping the run CLI as a launcher and a module with checked-hash bytecode, refining ADR-010 and ADR-028, and
-[ADR-041](ADR-041-tablepro-optional-component.md) for bringing TablePro back as an optional component, superseding ADR-008 in part.
+[ADR-041](ADR-041-tablepro-optional-component.md) for bringing TablePro back as an optional component, superseding ADR-008 in part, and
+[ADR-042](ADR-042-remove-parallel-worker-steps.md) for removing parallel worker steps, superseding ADR-016 and ADR-031 in part.
 
 ## Naming
 

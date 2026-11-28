@@ -1333,7 +1333,6 @@ def render_worker_body(name: str, runtime: str = "claude") -> list[str]:
     is_pi = runtime == "pi"
     config_dir = RUNTIMES[runtime]["config_dir"]
     prompt_tool = "ask_user_question" if is_pi else "AskUserQuestion"
-    file_tools = "`read`, `edit`, `write`, and `grep`" if is_pi else "`Read`, `Edit`, `Write`, and `Grep`"
     return [
         f"You are the b-agentic `{name}` subagent: a writer child of a `/b-flow` run. The main session gives you exactly one approved plan step with its packet and waits; it edits nothing while you work. Do not route, ask the user, delegate, or launch a nested subagent.",
         "",
@@ -1341,7 +1340,7 @@ def render_worker_body(name: str, runtime: str = "claude") -> list[str]:
         "",
         "Edit in place, only inside the approved scope and preferably only the step's own paths. Never touch `.b-agentic`, likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`), or git history: no commit, stage, stash, reset, checkout, rebase, or push. Install nothing. Run no generator or fixer the step does not name, no `b-state.mjs` or `b_run.py` command (nor its `b-state` or `b-run` wrapper), and no external, upload, lifecycle, or authentication action. If you need a path outside the scope, a decision, or a dependency, stop and answer `NEEDS INPUT: <one question>`.",
         "",
-        f"If the packet has a `Working directory` line, work only there: it is your own git worktree, and another worker may run beside you in a different one. Use absolute paths under it for {file_tools}, start every shell command with `cd <that directory> &&`, and never write to the main repository or to another worktree. CodeGraph indexes the main tree: use it for orientation only, and read and edit the files under your own directory. Your check runs there; if it needs something a fresh checkout lacks, such as installed packages, report that instead of installing it. Without that line, work in the repository root.",
+        "Work from the repository root: the packet's paths are relative to it, and the step's check runs there.",
         "",
         "Run the step's narrowest check, then report in this order: the step id; the changed paths; the check command and its exit code; deviations; open questions or `NEEDS INPUT`. Your report is evidence, not authority: the main session inspects the diff, reruns the check, and records the step.",
         "",
@@ -1580,6 +1579,7 @@ def validate_worker_regressions(
             "git history",
             "no `b-state.mjs` or `b_run.py` command",
             "`b-state` or `b-run` wrapper",
+            "Work from the repository root",
         ):
             if clause not in rendered:
                 errors.append(f"worker regression: {name} profile must state {clause!r}")
@@ -1870,13 +1870,13 @@ def pi_output_errors(outputs: dict[str, str], hits: set[str]) -> list[str]:
         errors.append(
             "pi output skills/b-flow/SKILL.md: only a listed worker step takes --by, so an ordinary step is recorded bare"
         )
-    if flow and ("b-worker" not in flow or "workflow" not in flow):
-        errors.append("pi output skills/b-flow/SKILL.md: must include Pi b-worker and parallel workflow guidance")
+    if flow and "b-worker" not in flow:
+        errors.append("pi output skills/b-flow/SKILL.md: must include Pi b-worker guidance")
     if flow and "one `bash` tool call per check" not in flow:
         errors.append("pi output skills/b-flow/SKILL.md: must include Pi parallel_checks guidance")
     plan_skill = outputs.get("skills/b-plan/SKILL.md", "")
-    if plan_skill and ("worker_steps" not in plan_skill or "parallel_steps" not in plan_skill):
-        errors.append("pi output skills/b-plan/SKILL.md: must include worker_steps and parallel_steps guidance")
+    if plan_skill and "worker_steps" not in plan_skill:
+        errors.append("pi output skills/b-plan/SKILL.md: must include worker_steps guidance")
     review = outputs.get("skills/b-review/SKILL.md", "")
     if review and "b-reviewer" not in review:
         errors.append("pi output skills/b-review/SKILL.md: the review gate must be the b-reviewer subagent")

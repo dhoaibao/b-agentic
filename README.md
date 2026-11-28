@@ -72,7 +72,7 @@ or one of its lines forgets a checkout ([details](REFERENCE.md)).
 The main session owns user interaction, decisions, verification, and worktree
 mutations. It delegates bounded planning, research, diagnosis, repository audits,
 and changed-code review to read-only subagents, and may hand approved `b-flow`
-`worker_steps` (including up to two parallel worktree `parallel_steps`) to
+`worker_steps`, one at a time, to
 `b-worker`. A change that touches security, permissions, contracts,
 configuration, or workflow policy is frozen as a fingerprinted candidate (`b-snapshot`) and
 reviewed independently; the main session recomputes the fingerprint afterward

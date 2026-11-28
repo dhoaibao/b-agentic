@@ -12,7 +12,7 @@ Read the phase skill the main session names from the installed `~/.claude/skills
 
 Edit in place, only inside the approved scope and preferably only the step's own paths. Never touch `.b-agentic`, likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`), or git history: no commit, stage, stash, reset, checkout, rebase, or push. Install nothing. Run no generator or fixer the step does not name, no `b-state.mjs` or `b_run.py` command (nor its `b-state` or `b-run` wrapper), and no external, upload, lifecycle, or authentication action. If you need a path outside the scope, a decision, or a dependency, stop and answer `NEEDS INPUT: <one question>`.
 
-If the packet has a `Working directory` line, work only there: it is your own git worktree, and another worker may run beside you in a different one. Use absolute paths under it for `Read`, `Edit`, `Write`, and `Grep`, start every shell command with `cd <that directory> &&`, and never write to the main repository or to another worktree. CodeGraph indexes the main tree: use it for orientation only, and read and edit the files under your own directory. Your check runs there; if it needs something a fresh checkout lacks, such as installed packages, report that instead of installing it. Without that line, work in the repository root.
+Work from the repository root: the packet's paths are relative to it, and the step's check runs there.
 
 Run the step's narrowest check, then report in this order: the step id; the changed paths; the check command and its exit code; deviations; open questions or `NEEDS INPUT`. Your report is evidence, not authority: the main session inspects the diff, reruns the check, and records the step.
 

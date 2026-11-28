@@ -3,6 +3,9 @@
 - Status: Accepted
 - Date: 2026-11-22
 - Supersedes: [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) in part (the no-`b-worker` and no-worktree constraints on Pi)
+- Superseded in part by [ADR-042](ADR-042-remove-parallel-worker-steps.md): parallel
+  worker steps and their worktrees were removed on both runtimes. Single worker steps
+  and `parallel_checks` on Pi stay as decided here.
 
 ## Context
 
@@ -52,6 +55,7 @@ Evidence: [`references/runtimes.yaml`](../../references/runtimes.yaml),
 [`skills/b-flow/prompt.md`](../../skills/b-flow/prompt.md),
 [`skills/b-plan/prompt.md`](../../skills/b-plan/prompt.md),
 [`claude/bin/b-state-next.mjs`](../../claude/bin/b-state-next.mjs),
-[`claude/bin/b-state-worktree.mjs`](../../claude/bin/b-state-worktree.mjs),
+the former worktree module of the state CLI (removed by ADR-042; last in commit
+`25f3e55e`),
 [`claude/bin/b_run.py`](../../claude/bin/b_run.py), and
 [`pi/extensions/b-agentic/guard.mjs`](../../pi/extensions/b-agentic/guard.mjs).

@@ -21,7 +21,7 @@
 // This file is the entry: argument parsing, `run` and the dispatch. The rest lives
 // in flat modules beside it, imported one way and never in a cycle: b-state-core
 // (constants, errors), -git, -store (state files, locks), -gates (evidence checks),
-// -worktree, -next, then -record and -commands (the commands).
+// -next, then -record and -commands (the commands).
 import { realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -50,7 +50,6 @@ import {
   resolveRun,
   takeLock,
 } from "./b-state-store.mjs";
-import { cmdWorktree } from "./b-state-worktree.mjs";
 
 export {
   STATE_SCHEMA,
@@ -119,7 +118,6 @@ const USAGE = [
   "  check [--takeover]                  verify the state against git, void stale evidence,",
   "                                      and print `next`: what the phase still owes",
   "  lock [--takeover] | unlock          take or release the run lock",
-  "  worktree add|collect|remove S-n     the git worktree of a parallel worker step (a b-flow batch)",
   "  help, --help, -h                    print this usage and exit 0 (reads and writes nothing)",
   "Exit: 0 done or help, 3 refused or not ok, 2 invalid input or state (a wrong command included).",
 ]
@@ -136,7 +134,6 @@ const COMMANDS = [
   "check",
   "lock",
   "unlock",
-  "worktree",
 ];
 
 const VALUE_FLAGS = new Set([
@@ -261,8 +258,6 @@ export async function run(argv, cwd, deps = {}) {
       const result = await cmdRecord(root, dir, state, args, deps);
       return await applyTimeStop(root, dir, command, result);
     }
-    if (command === "worktree")
-      return await cmdWorktree(root, dir, state, args, deps);
     throw invalid(`unknown command: ${command}`);
   } finally {
     release();

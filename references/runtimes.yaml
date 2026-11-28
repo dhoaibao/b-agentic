@@ -111,14 +111,6 @@
           "from": "Make one `Agent` call with `subagent_type` `b-worker`, passing that packet and the name of the step's phase skill, reply with one status line, and end the turn: the harness starts the worker in the background, and that is the wait the kernel requires, not background work you continue beside.",
           "to": "Make one `subagent` call with `agent` `b-worker`, passing that packet and the name of the step's phase skill, reply with one status line, and end the turn: the harness starts the worker in the background, and that is the wait the kernel requires, not background work you continue beside."
         },
-        {
-          "from": "run `b_run.py worker-profile` once, then `b-state.mjs worktree add S-n` for each,",
-          "to": "run `b-state.mjs worktree add S-n` and `b_run.py worker-profile --step S-n` for each,"
-        },
-        {
-          "from": "and make every `Agent` call in one message with each step's packet (its `Working directory` is that step's own worktree outside the repository), reply with one status line, and end the turn;",
-          "to": "and make one `subagent` call with `workflow` `parallel` and one `{agent: \"b-worker\", task, cwd}` entry per step (with that step's packet and `cwd` set to its `Working directory` outside the repository), reply with one status line, and end the turn;"
-        },
         {"from": "CLAUDE_CODE_SESSION_ID", "to": "PI_SESSION_ID"}
       ],
       "kernel_overrides": [

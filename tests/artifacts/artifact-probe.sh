@@ -271,26 +271,13 @@ lint_bad plan '.worker_steps = ["S-2", "S-2"]' "a worker step named twice"
 lint_bad plan '.worker_steps = ["step 2"]' "a worker step that is not a step id"
 br "$repo" lint plan < <(example plan | jq -c '.worker_steps = ["S-2"]')
 [ "$rc" -eq 0 ] || fail "a plan step may be listed as a worker step: $(cat "$work/err")"
-# parallel_steps: worker steps in their own worktrees at the same time; literal disjoint paths, readiness together.
+# parallel_steps is retired (ADR-042): even a list that used to be valid is refused in new data.
 three='.steps += [{"id": "S-3", "action": "Document it", "paths": ["docs/export.md"], "done_when": "the doc exists", "depends_on": ["S-1"]}] | .worker_steps = ["S-2", "S-3"]'
-lint_bad plan "$three | .parallel_steps = []" "an empty parallel_steps list"
-lint_bad plan "$three | .parallel_steps = [\"S-2\"]" "fewer than two steps that run together"
-lint_bad plan "$three | .parallel_steps = \"S-2\"" "parallel steps that are not a list"
-lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-2\"]" "a parallel step named twice"
-lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-1\"]" "a parallel step that is not a worker step"
-lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-9\"]" "a parallel step that is not a plan step"
-lint_bad plan "$three | .steps[1].paths = [\"tests/*.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a glob path in a parallel step"
-lint_bad plan "$three | .steps[2].paths = [\"tests\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a path inside another parallel step's path"
-lint_bad plan "$three | .steps[2].paths = [\"tests/test_export.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "two parallel steps with the same path"
-lint_bad plan "$three | .steps[2].paths = [\"tests/./test_export.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "an alias of another parallel step's path"
-lint_bad plan "$three | .steps[2].paths = [\"tests//x.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a doubled separator in a parallel step path"
-lint_bad plan "$three | .steps[2].paths = [\"tests/\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a trailing separator in a parallel step path"
-lint_bad plan "$three | .steps[2].paths = [\"../x.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a parent component in a parallel step path"
-lint_bad plan "$three | .steps[2].paths = [\"/abs/x.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "an absolute parallel step path"
-lint_bad plan "$three | .steps[2].depends_on = [\"S-2\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "parallel steps where one waits for the other"
-lint_bad plan "$three | del(.steps[2].depends_on) | .parallel_steps = [\"S-2\", \"S-3\"]" "a step that waits for the step before it, which is the other one"
-br "$repo" lint plan < <(example plan | jq -c "$three | .parallel_steps = [\"S-2\", \"S-3\"]")
-[ "$rc" -eq 0 ] || fail "two ready worker steps with disjoint literal paths may run together: $(cat "$work/err")"
+lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-3\"]" "the retired parallel_steps field"
+grep -Fq 'plan.parallel_steps is retired (ADR-042); list the steps in worker_steps only' "$work/err" \
+  || fail "the retired-field refusal must name the field and the fix: $(cat "$work/err")"
+br "$repo" lint plan < <(example plan | jq -c "$three")
+[ "$rc" -eq 0 ] || fail "two worker steps without the retired field must lint: $(cat "$work/err")"
 lint_bad qa '.verdict = "QA PASS" | .rows[0].result = "fail"' "QA PASS with a failing row"
 lint_bad qa '.verdict = "QA FAIL"' "QA FAIL with only passing rows"
 lint_bad qa '.rows[0].result = "waived"' "waived row without waived_by"
@@ -818,7 +805,7 @@ grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step)' <<<"$out" || fai
 dep_state="$(rundir "$dep_repo")/state.json"
 ok "$dep_repo" handoff implement --step S-2
 grep -Fxq 'Step: S-2 (worker step)' <<<"$out" || fail "the step packet must say who applies the step: $out"
-# On Pi the packets match Claude Code for worker steps and worktrees; help still prints PI_SESSION_ID.
+# On Pi the packets match Claude Code for worker steps; help still prints PI_SESSION_ID.
 # shellcheck disable=SC2088 # The folder is the literal text ~/... that the CLI prints, never expanded.
 pi_override='~/.pi/agent/b-agentic/bin'
 B_AGENTIC_HELPER_DIR="$pi_override" ok "$dep_repo" handoff implement --step S-2
@@ -858,32 +845,8 @@ ok "$dep_repo" write plan < <(example plan)
 grep -Fq 'Worker steps' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without worker_steps must not render them"
 ok "$dep_repo" handoff implement
 [ "$out" = "$plain_implement" ] || fail "the full implement packet of a plan without worker_steps must keep its bytes: $out"
-# parallel_steps renders and summarizes only when listed; a plan without it keeps every byte.
-ok "$dep_repo" write plan < <(example plan | jq -c "$three | .steps[2].paths = [\"tests/test_other.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]")
-[ "$(sed -n '/^## Steps that may run together$/,/^$/p' "$(rundir "$dep_repo")/plan.md" | tr '\n' '|')" = '## Steps that may run together|- S-2|- S-3||' ] \
-  || fail "a plan with parallel_steps must render them: $(cat "$(rundir "$dep_repo")/plan.md")"
-ok "$dep_repo" validate
-[ "$(jq -c '.artifacts.plan.parallel_steps' <<<"$out")" = '["S-2","S-3"]' ] || fail "the summary must list the parallel steps: $out"
-# A step with a registered worktree of this run says where the worker works; one without keeps its bytes.
 ok "$dep_repo" handoff implement --step S-2
-no_dir_packet=$out
-grep -Fq 'Working directory' <<<"$out" && fail "a step without a worktree names no working directory: $out"
-wt_run=$(jq -r .run_id "$dep_state")
-wt_tag=$(printf '%s' "$(cd "$dep_repo" && pwd -P)" | sha256sum | cut -c1-8)
-wt_path="$work/b-agentic-wt-$wt_tag-$wt_run-S-2"
-git -C "$dep_repo" worktree add -q --detach "$wt_path" HEAD
-ok "$dep_repo" handoff implement --step S-2
-grep -Fxq "Working directory: $wt_path" <<<"$out" || fail "the packet of a step with a run worktree must name it: $out"
-[ "$(grep -v '^Working directory: ' <<<"$out")" = "$no_dir_packet" ] || fail "the working directory line is the only difference in the step packet: $out"
-ok "$dep_repo" handoff implement --step S-3
-grep -Fq 'Working directory' <<<"$out" && fail "another step's packet names no working directory: $out"
-git -C "$dep_repo" worktree remove --force "$wt_path"
-ok "$dep_repo" write plan < <(example plan)
-grep -Fq 'may run together' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without parallel_steps must not render them"
-ok "$dep_repo" validate
-[ "$(jq -c '.artifacts.plan.parallel_steps' <<<"$out")" = '[]' ] || fail "a plan without parallel_steps lists none: $out"
-ok "$dep_repo" handoff implement
-[ "$out" = "$plain_implement" ] || fail "the full implement packet of a plan without parallel_steps must keep its bytes: $out"
+grep -Fq 'Working directory' <<<"$out" && fail "a step packet names no working directory: $out"
 
 # --- the b-worker profile in effect (a project profile over the user's) stays inside the worker's allowlist ---
 wp_home="$work/wphome"
@@ -1098,25 +1061,23 @@ pi_wp
 rm "$pi_wp_repo/.pi/agents/b-worker.md"
 pi_wp
 [ "$rc" -eq 0 ] || fail "Pi worker-profile passes again once overrides are removed: rc=$rc $out"
-# worker-profile --step S-n checks the actual worktree cwd (catching a shadowing profile near the worktree).
-pi_wt_base="$work/pi-wt-base"
-mkdir -p "$pi_wt_base/.pi/agents"
-sed 's/^tools: /tools: subagent, /' "$work/pi-rendered/agents/b-worker.md" >"$pi_wt_base/.pi/agents/b-worker.md"
+# worker-profile --step S-n (the Pi single-worker wording runs it) checks the profile for a step of the run.
 newrun "$pi_wp_repo"
-( cd "$pi_wp_repo" && example spec | jq -c '.scope_paths = ["a.txt","b.txt"]' | env HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" write spec --owner s1 >/dev/null )
-( cd "$pi_wp_repo" && example plan | jq -c '.steps = [{id:"S-1",action:"a",paths:["a.txt"],done_when:"d"},{id:"S-2",action:"b",paths:["b.txt"],done_when:"d",depends_on:[]}] | .worker_steps = ["S-1","S-2"] | .parallel_steps = ["S-1","S-2"]' \
-  | env HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" write plan --owner s1 >/dev/null )
-pi_wt_tag=$(printf '%s' "$pi_wp_repo" | sha256sum | cut -c1-8)
-pi_wt_run=$(jq -r .run_id "$(rundir "$pi_wp_repo")/state.json")
-pi_wt_dir="$pi_wt_base/b-agentic-wt-$pi_wt_tag-$pi_wt_run-S-2"
-git -C "$pi_wp_repo" worktree add -q --detach "$pi_wt_dir" HEAD
-rc=0
-out=$(cd "$pi_wp_repo" && HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" worker-profile --step S-2 --owner s1 2>"$work/err") || rc=$?
-[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "worker-profile --step S-2 must catch a profile near the worktree cwd: rc=$rc $out"
-git -C "$pi_wp_repo" worktree remove --force "$pi_wt_dir"
-rm -rf "$pi_wt_base/.pi"
+pi_wp_step() {
+  rc=0
+  out=$(cd "$pi_wp_repo" && HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" worker-profile --step "$1" --owner s1 2>"$work/err") || rc=$?
+}
+pi_wp_step S-2
+[ "$rc" -eq 0 ] || fail "Pi worker-profile --step must pass with a good profile and no worktree: rc=$rc $out $(cat "$work/err")"
+mkdir -p "$pi_wp_repo/.pi/agents"
+sed 's/^tools: /tools: subagent, /' "$work/pi-rendered/agents/b-worker.md" >"$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp_step S-2
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "Pi worker-profile --step must catch a shadowing project profile: rc=$rc $out"
+rm "$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp_step step-2
+[ "$rc" -eq 2 ] || fail "Pi worker-profile --step must refuse a malformed step id: rc=$rc $out"
 pi_wp
-[ "$rc" -eq 0 ] || fail "Pi worker-profile passes again after worktree cleanup: rc=$rc $out"
+[ "$rc" -eq 0 ] || fail "Pi worker-profile passes again once overrides are removed: rc=$rc $out"
 
 # --- the owner: --owner, then CLAUDE_CODE_SESSION_ID -----------------------
 owner_repo="$work/owner"
@@ -1187,6 +1148,41 @@ invalid "$legacy_repo" write spec < <(example spec | jq -c '.consent.codex = "re
 ok "$legacy_repo" write spec < <(example spec)
 grep -Fq 'Codex' "$legacy_dir/spec.md" && fail "a rewritten spec must drop the retired Codex consent"
 ok "$legacy_repo" validate
+
+# --- a plan recorded before ADR-042 keeps its parallel_steps: it validates and renders the same ---
+legacy_plan_repo="$work/legacy-plan"
+make_repo "$legacy_plan_repo"
+newrun "$legacy_plan_repo"
+ok "$legacy_plan_repo" write spec < <(example spec)
+legacy_three="$three | .steps[2].paths = [\"tests/test_other.py\"]"
+ok "$legacy_plan_repo" write plan < <(example plan | jq -c "$legacy_three")
+legacy_plan_dir=$(rundir "$legacy_plan_repo")
+python3 -I - "$legacy_plan_dir" <<'PY'
+import hashlib
+import json
+import sys
+
+d = sys.argv[1]
+body = open(f"{d}/plan.md").read()
+assert body.count("\n## Invariants\n") == 1
+body = body.replace("\n## Invariants\n", "\n## Steps that may run together\n- S-2\n- S-3\n\n## Invariants\n")
+open(f"{d}/plan.md", "w").write(body)
+artifacts = json.load(open(f"{d}/artifacts.json"))
+plan = artifacts["artifacts"]["plan"]
+plan["data"]["parallel_steps"] = ["S-2", "S-3"]
+plan["sha256"] = hashlib.sha256(body.encode()).hexdigest()
+json.dump(artifacts, open(f"{d}/artifacts.json", "w"), indent=2)
+PY
+ok "$legacy_plan_repo" validate
+[ "$(jq -c '.artifacts.plan | [has("parallel_steps"), .worker_steps]' <<<"$out")" = '[false,["S-2","S-3"]]' ] \
+  || fail "the summary of a legacy plan lists its worker steps and no parallel steps: $out"
+grep -Fq '## Steps that may run together' "$legacy_plan_dir/plan.md" || fail "a legacy plan must keep rendering its parallel steps"
+# New data is refused even in a run that holds a legacy plan.
+invalid "$legacy_plan_repo" write plan < <(example plan | jq -c "$legacy_three | .parallel_steps = [\"S-2\", \"S-3\"]")
+grep -Fq 'plan.parallel_steps is retired (ADR-042)' "$work/err" || fail "a legacy run must refuse the field by name: $(cat "$work/err")"
+ok "$legacy_plan_repo" write plan < <(example plan | jq -c "$legacy_three")
+grep -Fq 'may run together' "$legacy_plan_dir/plan.md" && fail "a rewritten plan must drop the retired section"
+ok "$legacy_plan_repo" validate
 
 # --- runs and prune: only finished, old, non-active runs of plain files are ever removed ------
 old_stamp=2026-01-01T00:00:00.000Z

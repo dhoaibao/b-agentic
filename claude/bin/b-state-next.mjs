@@ -1,5 +1,5 @@
 // The next-step text of the b-state CLI: what the current phase still owes (ADR-009).
-// Imports the core, git, gates and worktree modules.
+// Imports the core, git and gates modules.
 import {
   BUDGET_REASON,
   BUDGET_WINDOW_S,
@@ -12,11 +12,9 @@ import {
   missingChecks,
   missingSteps,
   parallelChecks,
-  parallelSteps,
   workerSteps,
 } from "./b-state-gates.mjs";
 import { gitOr } from "./b-state-git.mjs";
-import { runWorktrees, WORKTREE_CAP } from "./b-state-worktree.mjs";
 
 const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 
@@ -73,19 +71,6 @@ export async function nextSteps(root, state, art, fingerprint = "") {
   if (!art)
     return [`the run artifacts could not be read: ${runCmd("validate")}`];
   const { spec, plan, qa, followups } = art.artifacts;
-  // Worktrees of parallel worker steps (ADR-016): none exist unless the plan lists such steps.
-  const parallel = parallelSteps(art);
-  const trees =
-    parallel.length > 0 && !["clarify", "approved"].includes(state.phase)
-      ? await runWorktrees(root, state, plan)
-      : [];
-  if (trees.length > 0 && state.phase !== "implement") {
-    return [
-      `remove each leftover worktree of this run first: ${trees
-        .map((w) => stateCmd(`worktree remove ${w.id}`))
-        .join("; ")}`,
-    ];
-  }
   if (state.phase === "clarify") {
     const steps = [];
     if (!spec)
@@ -110,45 +95,13 @@ export async function nextSteps(root, state, art, fingerprint = "") {
   if (state.phase === "implement") {
     const owed = missingSteps(state, plan);
     const handed = workerSteps(art);
-    // Parallel worker steps: the first two that are ready start together, each
-    // in its own worktree; once a worktree exists, collect them in plan order.
-    const open = new Set(trees.map((w) => w.id));
-    const ready = owed.filter(
-      (id) =>
-        parallel.includes(id) &&
-        !open.has(id) &&
-        plan.steps
-          .find((s) => s.id === id)
-          .depends_on.every((d) => state.steps[d]),
-    );
-    const batch = open.size === 0 ? ready.slice(0, WORKTREE_CAP) : [];
-    const batched = batch.length >= 2;
-    const grouped = new Set(batched ? batch : []);
-    const dispatch = onPi()
-      ? 'one subagent call with workflow parallel and one {agent: "b-worker", task, cwd} entry per step (each step\'s packet, with cwd set to its Working directory)'
-      : "all calls in one message, then end the turn";
-    const batchLines = batched
-      ? [
-          `these worker steps may run at the same time, each in its own worktree: ${batch.join(", ")}; for each ${stateCmd("worktree add S-n")} and hand it to one b-worker with ${runCmd("handoff implement --step S-n")} (${dispatch}); once every report is in, in plan order for each: ${stateCmd("worktree collect S-n")}, run the apply command it prints, ${stateCmd("record step S-n --by worker")}, ${stateCmd("worktree remove S-n")} (a refusal at any point: apply that step yourself in the main tree, ${stateCmd("record step S-n --by main")}, then ${stateCmd("worktree remove S-n")})`,
-        ]
-      : [];
-    const inProgress =
-      open.size > 0
-        ? [
-            `worktrees exist for ${[...open].join(", ")}: once each worker has reported, in plan order ${stateCmd("worktree collect S-n")}, the apply command it prints, ${stateCmd("record step S-n --by worker")}, ${stateCmd("worktree remove S-n")}`,
-          ]
-        : [];
     return [
       ...(owed.length > 0 ? [runCmd("handoff implement")] : []),
-      ...batchLines,
-      ...inProgress,
-      ...owed
-        .filter((id) => !grouped.has(id) && !open.has(id))
-        .map((id) =>
-          handed.includes(id)
-            ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
-            : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
-        ),
+      ...owed.map((id) =>
+        handed.includes(id)
+          ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
+          : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
+      ),
       stateCmd("advance verify"),
     ];
   }
