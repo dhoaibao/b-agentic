@@ -84,7 +84,7 @@ SUBAGENT_CONFIG = "extensions/subagent/config.json"
 # pin or a range, so a package entry that carries any version spec keeps the chain and the classifier config out.
 CHAIN_PACKAGES = (PERMISSION_PACKAGE, CLASSIFIER_PACKAGE)
 MAX_CHAIN = 1000  # the permission system rejects a config array of more entries
-TOP = "@top"  # the section name of a top-level permission-config key such as yoloMode
+TOP = "@top"  # legacy section name kept to retire and uninstall an earlier install's owned yoloMode
 PI_PROTECTED = (
     (".claude", "the Claude Code directory"),
     (".claude.json", "the Claude Code configuration"),
@@ -162,6 +162,10 @@ def same_json_value(left: Any, right: Any) -> bool:
     return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
 
 
+def has_json_value(values: list[Any], target: Any) -> bool:
+    return any(same_json_value(existing, target) for existing in values)
+
+
 def triples(permission: dict[str, Any]) -> list[Triple]:
     """A permission config as (section, pattern, value) rules; a scalar rule has no pattern."""
     found: list[Triple] = []
@@ -182,7 +186,7 @@ def triple_values(*groups: list[Any]) -> dict[tuple[str, str | None], list[Any]]
     for group in groups:
         for section, pattern, value in group:
             values = index.setdefault((section, pattern), [])
-            if value not in values:
+            if not has_json_value(values, value):
                 values.append(value)
     return index
 
@@ -927,7 +931,9 @@ class Installer:
             if value is not None and not isinstance(value, str):
                 raise InstallError(f'{path}: permission.{section}["*"] must be allow, ask, or deny')
             if value is not None and (section, "*") in shipped:
-                if value not in owned.get((section, "*"), []) and value != shipped[(section, "*")]:
+                if not has_json_value(owned.get((section, "*"), []), value) and not same_json_value(
+                    value, shipped[(section, "*")]
+                ):
                     floors[section] = STRICTNESS.get(value, 1)
 
         def loosens(rule: Triple) -> bool:
@@ -955,10 +961,10 @@ class Installer:
                 if key not in container:
                     container[key] = value
                     record.append((section, None, value))
-                elif container[key] == value:
-                    if value in owned.get((section, None), []):
+                elif same_json_value(container[key], value):
+                    if has_json_value(owned.get((section, None), []), value):
                         record.append((section, None, value))
-                elif container[key] in owned.get((section, None), []):
+                elif has_json_value(owned.get((section, None), []), container[key]):
                     container[key] = value
                     record.append((section, None, value))
                 else:
@@ -973,10 +979,10 @@ class Installer:
             if pattern not in rules:
                 rules[pattern] = value
                 record.append((section, pattern, value))
-            elif rules[pattern] == value:
-                if value in owned.get((section, pattern), []):
+            elif same_json_value(rules[pattern], value):
+                if has_json_value(owned.get((section, pattern), []), value):
                     record.append((section, pattern, value))
-            elif rules[pattern] in owned.get((section, pattern), []):
+            elif has_json_value(owned.get((section, pattern), []), rules[pattern]):
                 rules[pattern] = value
                 record.append((section, pattern, value))
             else:
@@ -1123,12 +1129,12 @@ class Installer:
         container = config if section == TOP else config.get("permission", {})
         key = "yoloMode" if section == TOP else section
         if pattern is None:
-            if key in container and container[key] in values:
+            if key in container and has_json_value(values, container[key]):
                 del container[key]
                 return True
             return False
         rules = container.get(key)
-        if isinstance(rules, dict) and pattern in rules and rules[pattern] in values:
+        if isinstance(rules, dict) and pattern in rules and has_json_value(values, rules[pattern]):
             del rules[pattern]
             return True
         return False

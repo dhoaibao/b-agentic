@@ -181,7 +181,7 @@ if [ -n "${PI_PROBE_NPM_DIR:-}" ]; then
   printf '{"packages":["npm:pi-subagents","npm:@gotgenes/pi-permission-system"]}\n' >"$home/settings.json"
   mkdir -p "$home/extensions/pi-permission-system"
   # No secret or .b-agentic rule: only the owned guard can refuse those calls.
-  printf '{"yoloMode":false,"permission":{"read":"allow","write":"allow","edit":"allow","find":"allow","grep":"allow","ls":"allow","bash":{"*":"allow"},"external_directory":"allow","subagent":"allow","subagent_launch":"allow","bg_wait":"allow"}}\n' \
+  printf '{"permission":{"read":"allow","write":"allow","edit":"allow","find":"allow","grep":"allow","ls":"allow","bash":{"*":"allow"},"external_directory":"allow","subagent":"allow","subagent_launch":"allow","bg_wait":"allow"}}\n' \
     >"$home/extensions/pi-permission-system/config.json"
   printf -- '---\nname: probe-reader\ndescription: "probe"\ntools: read, write, bash\nexcludeTools: edit, subagent\nsystemPromptMode: replace\nallowNestedSubagents: false\n---\n\nYou are a probe agent.\n' >"$home/agents/probe-reader.md"
   run_pi child '{"go":[{"name":"subagent","arguments":{"agent":"probe-reader","task":"CHILD-1 probe","async":false}},"text"],"CHILD-1":[{"name":"read","arguments":{"path":".env"}},{"name":"write","arguments":{"path":".b-agentic/runs/x/spec.md","content":"x"}},{"name":"read","arguments":{"path":"notes.txt"}},"text"]}' go

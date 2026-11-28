@@ -220,7 +220,9 @@ theme, subagent config, classifier, and `/b-*` prompt templates):
   [ADR-036](docs/decisions/ADR-036-run-stats-kit-version.md)); and entries merged into `AGENTS.md` (kernel block),
   `settings.json`, `mcp.json`, `extensions/subagent/config.json`, and
   `extensions/pi-permission-system/config.json`
-  (including `authorizerChain: ["permission-judge"]`, added after your own links);
+  (including `authorizerChain: ["permission-judge"]`, added after your own links;
+  an earlier install's owned `yoloMode` is removed because the permission system
+  no longer reads it, and auto-approve is set per session);
   in `settings.json`, `"theme": "dracula"` is set only when `"theme"` is absent
   (an existing user `"theme"` is preserved silently, and `--uninstall` removes it
   only while it still equals the owned value); in

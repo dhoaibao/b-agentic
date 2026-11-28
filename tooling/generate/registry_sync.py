@@ -1759,7 +1759,7 @@ def render_pi_permission(policy: dict[str, Any]) -> dict[str, Any]:
         }
     )
     permission.update({tool: "allow" for tool in pi["allowed_tools"]})
-    config: dict[str, Any] = {"yoloMode": False}
+    config: dict[str, Any] = {}
     if PI_CLASSIFIER_PACKAGE in pi["packages"]:
         # The permission system consults only the links named here; the classifier package never enables itself.
         config["authorizerChain"] = [PI_CLASSIFIER_LINK]

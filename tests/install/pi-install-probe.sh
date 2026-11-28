@@ -141,8 +141,10 @@ grep -Fq 'unchanged' <<<"$out" || fail "a second install must report unchanged f
 cmp -s "$root/pi/themes/dracula.json" "$agent/themes/dracula.json" || fail "installed themes/dracula.json must match pi/themes/dracula.json byte for byte"
 [ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"inlineToolDisplay":"summary","asyncWidget":false,"fleetView":false}' ] \
   || fail "fresh install must write the subagent config: $(cat "$agent/extensions/subagent/config.json")"
-jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and .permission.subagents_enable == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
-  "$agent/extensions/pi-permission-system/config.json" >/dev/null || fail "the permission config lacks a required rule"
+jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and .permission.subagents_enable == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and (has("yoloMode") | not)' \
+  "$agent/extensions/pi-permission-system/config.json" >/dev/null || fail "the permission config lacks a required rule or still sets yoloMode"
+jq -e '[.permission[]? | select(.[0] == "@top")] | length == 0' "$agent/b-agentic/install.json" >/dev/null \
+  || fail "a fresh install must not record an @top permission entry"
 jq -e '[.mcpServers[].exposure] | all(. == "direct")' "$agent/mcp.json" >/dev/null || fail "every MCP server must carry exposure direct"
 # The classifier judges asks only when the chain names it and its own config exists; neither enables itself.
 [ "$(jq -c '.authorizerChain' "$agent/extensions/pi-permission-system/config.json")" = '["permission-judge"]' ] \
@@ -710,6 +712,75 @@ perm="$agent/extensions/pi-permission-system/config.json"
 [ "$(jq -r '.permission.mcp["mcp__datagrip__list_database_connections"] // "none"' "$perm")" != allow ] || fail "a user-managed DataGrip endpoint must get no automatic approvals"
 [ "$(jq -r '.permission.mcp["mcp__codegraph__codegraph_explore"]' "$perm")" = allow ] || fail "an installed server must keep its automatic approval"
 [ "$(jq -c '.mcpServers.datagrip' "$agent/mcp.json")" = '{"command":"my-datagrip"}' ] || fail "the user's DataGrip endpoint changed"
+
+# --- legacy owned yoloMode retires on upgrade and uninstall; unowned yoloMode survives both -------------------------------
+home=$(fresh_home yolo_upgrade)
+agent="$home/.pi/agent"
+perm="$agent/extensions/pi-permission-system/config.json"
+manifest="$agent/b-agentic/install.json"
+run "$home" -y; expect_ok "install before legacy yoloMode upgrade"
+jq '.yoloMode = false' "$perm" >"$work/perm.json" && mv "$work/perm.json" "$perm"
+jq '.permission += [["@top", null, false]]' "$manifest" >"$work/manifest.json" && mv "$work/manifest.json" "$manifest"
+run "$home" -y; expect_ok "upgrade retiring legacy owned yoloMode"
+jq -e 'has("yoloMode") | not' "$perm" >/dev/null || fail "upgrade must retire owned yoloMode: $(cat "$perm")"
+jq -e '[.permission[]? | select(.[0] == "@top")] | length == 0' "$manifest" >/dev/null \
+  || fail "upgrade must drop @top ownership after retiring yoloMode"
+
+home=$(fresh_home yolo_unowned)
+agent="$home/.pi/agent"
+perm="$agent/extensions/pi-permission-system/config.json"
+mkdir -p "$agent/extensions/pi-permission-system"
+printf '%s\n' '{"yoloMode":true}' >"$perm"
+run "$home" -y; expect_ok "install over user-owned yoloMode"
+[ "$(jq -r '.yoloMode' "$perm")" = true ] || fail "unowned yoloMode must survive install: $(cat "$perm")"
+jq -e '[.permission[]? | select(.[0] == "@top")] | length == 0' "$agent/b-agentic/install.json" >/dev/null \
+  || fail "unowned yoloMode must not be recorded in install.json"
+run "$home" -y --uninstall; expect_ok "uninstall preserving user-owned yoloMode"
+[ "$(jq -r '.yoloMode' "$perm")" = true ] || fail "unowned yoloMode must survive uninstall: $(cat "$perm")"
+
+home=$(fresh_home yolo_uninstall)
+agent="$home/.pi/agent"
+perm="$agent/extensions/pi-permission-system/config.json"
+manifest="$agent/b-agentic/install.json"
+run "$home" -y; expect_ok "install before legacy yoloMode uninstall"
+jq '.yoloMode = false | .custom = 1' "$perm" >"$work/perm.json" && mv "$work/perm.json" "$perm"
+jq '.permission += [["@top", null, false]]' "$manifest" >"$work/manifest.json" && mv "$work/manifest.json" "$manifest"
+run "$home" -y --uninstall; expect_ok "uninstall with legacy owned yoloMode"
+jq -e '(has("yoloMode") | not) and .custom == 1' "$perm" >/dev/null \
+  || fail "uninstall must remove legacy owned yoloMode while keeping user keys: $(cat "$perm")"
+
+# User-modified numeric 0/0.0 must never match owned boolean false during upgrade or direct uninstall.
+for num in 0 0.0; do
+  for field in permission pending; do
+    home=$(fresh_home "yolo_numeric_${field}_${num}")
+    agent="$home/.pi/agent"
+    perm="$agent/extensions/pi-permission-system/config.json"
+    manifest="$agent/b-agentic/install.json"
+    run "$home" -y; expect_ok "install before numeric $num ($field) upgrade"
+    jq --argjson v "$num" '.yoloMode = $v' "$perm" >"$work/perm.json" && mv "$work/perm.json" "$perm"
+    if [ "$field" = permission ]; then
+      jq '.permission += [["@top", null, false]]' "$manifest" >"$work/manifest.json" && mv "$work/manifest.json" "$manifest"
+    else
+      jq '.pending.permission += [["@top", null, false]]' "$manifest" >"$work/manifest.json" && mv "$work/manifest.json" "$manifest"
+    fi
+    run "$home" -y; expect_ok "upgrade keeping user numeric yoloMode $num ($field)"
+    jq -e --argjson v "$num" 'has("yoloMode") and (.yoloMode | type == "number") and .yoloMode == $v' "$perm" >/dev/null \
+      || fail "upgrade deleted numeric yoloMode $num ($field): $(cat "$perm")"
+    run "$home" -y --uninstall; expect_ok "uninstall keeping user numeric yoloMode $num ($field)"
+    jq -e --argjson v "$num" 'has("yoloMode") and (.yoloMode | type == "number") and .yoloMode == $v' "$perm" >/dev/null \
+      || fail "uninstall after upgrade deleted numeric yoloMode $num ($field): $(cat "$perm")"
+  done
+  home=$(fresh_home "yolo_numeric_direct_uninstall_${num}")
+  agent="$home/.pi/agent"
+  perm="$agent/extensions/pi-permission-system/config.json"
+  manifest="$agent/b-agentic/install.json"
+  run "$home" -y; expect_ok "install before numeric $num direct uninstall"
+  jq --argjson v "$num" '.yoloMode = $v' "$perm" >"$work/perm.json" && mv "$work/perm.json" "$perm"
+  jq '.permission += [["@top", null, false]]' "$manifest" >"$work/manifest.json" && mv "$work/manifest.json" "$manifest"
+  run "$home" -y --uninstall; expect_ok "direct uninstall keeping user numeric yoloMode $num"
+  jq -e --argjson v "$num" 'has("yoloMode") and (.yoloMode | type == "number") and .yoloMode == $v' "$perm" >/dev/null \
+    || fail "direct uninstall deleted numeric yoloMode $num: $(cat "$perm")"
+done
 
 # --- the Pi install never reaches the network for its source or follows an agent root into ~/.claude ---------------
 gitshim="$work/gitshim"

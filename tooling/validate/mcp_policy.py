@@ -309,7 +309,7 @@ def pi_permission_errors(permission: dict, policy: dict, agent_tools: dict[str, 
 
 
 def pi_yolo_errors(config: dict) -> list[str]:
-    return [] if config.get("yoloMode") is False else ["pi permission: the emitted yoloMode must be false"]
+    return ["pi permission: config/permission.json must not emit retired yoloMode"] if "yoloMode" in config else []
 
 
 def pi_mcp_errors(artifact: str) -> list[str]:
@@ -346,11 +346,12 @@ def pi_errors(policy: dict) -> list[str]:
             line = next((item for item in text.splitlines() if item.startswith("tools: ")), "tools: ")
             agent_tools[path] = [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
     errors = pi_permission_errors(permission, policy, agent_tools)
-    # Pi must never ship with its yolo mode on, whatever the renderer says: check the emitted file itself.
+    # Pi permission config must omit retired yoloMode (pi-permission-system warns on any value).
     emitted = json.loads(outputs["config/permission.json"])
     errors.extend(pi_yolo_errors(emitted))
-    if not pi_yolo_errors({**emitted, "yoloMode": True}):
-        errors.append("pi permission regression: an enabled yoloMode was not detected")
+    for value in (True, False):
+        if not pi_yolo_errors({**emitted, "yoloMode": value}):
+            errors.append(f"pi permission regression: an emitted yoloMode={value!r} was not detected")
     errors.extend(pi_mcp_errors(outputs["config/mcp.json"]))
     mcp_artifact = json.loads(outputs["config/mcp.json"])
     del mcp_artifact["mcpServers"][next(iter(mcp_artifact["mcpServers"]))]
