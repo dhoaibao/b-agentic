@@ -93,7 +93,6 @@ expected="$work/expected.txt"
   printf '%s\n' AGENTS.md settings.json mcp.json extensions/pi-permission-system/config.json \
     extensions/pi-permission-classifier/config.json extensions/subagent/config.json themes/dracula.json \
     extensions/b-agentic/index.ts extensions/b-agentic/guard.mjs \
-    extensions/b-input-image-preview/index.ts \
     b-agentic/install.json b-agentic/bin/b-run b-agentic/bin/b-snapshot b-agentic/bin/b-state \
     b-agentic/hooks/b-path-guard.mjs b-agentic/hooks/b-verify-gate.mjs b-agentic/hooks/b-spec-context.mjs \
     b-agentic/hooks/b-run-context.mjs b-agentic/hooks/b-alexandria-guard.mjs \
@@ -140,8 +139,6 @@ grep -Fq 'unchanged' <<<"$out" || fail "a second install must report unchanged f
 [ "$(jq -c '.defaultTools' "$agent/settings.json")" = '["+grep","+find","+ls"]' ] || fail "defaultTools must add the search tools"
 [ "$(jq -r '.theme' "$agent/settings.json")" = dracula ] || fail "fresh install must set theme dracula: $(jq -c . "$agent/settings.json")"
 cmp -s "$root/pi/themes/dracula.json" "$agent/themes/dracula.json" || fail "installed themes/dracula.json must match pi/themes/dracula.json byte for byte"
-cmp -s "$root/pi/extensions/b-input-image-preview/index.ts" "$agent/extensions/b-input-image-preview/index.ts" \
-  || fail "installed extensions/b-input-image-preview/index.ts must match source byte for byte"
 [ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"inlineToolDisplay":"summary","asyncWidget":false,"fleetView":false}' ] \
   || fail "fresh install must write the subagent config: $(cat "$agent/extensions/subagent/config.json")"
 jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and .permission.subagents_enable == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
@@ -299,34 +296,6 @@ run "$home" -y; expect_ok "reinstall over unowned themes/dracula.json"
 run "$home" -y --force; expect_ok "forced install over unowned themes/dracula.json"
 cmp -s "$root/pi/themes/dracula.json" "$agent/themes/dracula.json" || fail "--force must replace unowned theme file"
 find "$agent/b-agentic/backups" -type f -name '*themes__dracula.json' | grep -q . || fail "--force must back up unowned theme file"
-
-# An edited b-input-image-preview/index.ts is kept with a warning and replaced only by --force after a backup.
-home=$(fresh_home previewedit)
-agent="$home/.pi/agent"
-preview="$agent/extensions/b-input-image-preview/index.ts"
-run "$home" -y; expect_ok "install before editing b-input-image-preview"
-printf '// edited\n' >>"$preview"
-run "$home" -y; expect_ok "install over edited b-input-image-preview"
-grep -Fq '// edited' "$preview" || fail "edited b-input-image-preview must be kept"
-grep -Fq 'modified since install' <<<"$err" || fail "edited b-input-image-preview must warn: $err"
-run "$home" -y --force; expect_ok "forced install over edited b-input-image-preview"
-cmp -s "$root/pi/extensions/b-input-image-preview/index.ts" "$preview" || fail "--force must replace edited b-input-image-preview"
-find "$agent/b-agentic/backups" -type f -name '*b-input-image-preview__index.ts' | grep -q . || fail "--force must back up edited b-input-image-preview"
-run "$home" -y --uninstall; expect_ok "uninstall after b-input-image-preview edit"
-[ ! -e "$agent/extensions/b-input-image-preview" ] || fail "uninstall must remove b-input-image-preview and prune its directory"
-
-# safe_relative allows only extensions/b-input-image-preview/index.ts under that subtree.
-python3 -I -B - "$root/tooling/install" <<'PY' || fail "safe_relative must reject other files under extensions/b-input-image-preview"
-import sys
-sys.path.insert(0, sys.argv[1])
-import pi_install
-try:
-    pi_install.safe_relative("extensions/b-input-image-preview/other.ts")
-except pi_install.InstallError as exc:
-    assert "unsafe managed path" in str(exc), exc
-else:
-    raise SystemExit("expected InstallError")
-PY
 
 # AC-7: invalid JSON or non-object extensions/subagent/config.json is refused before any writes.
 for bad_subagent in '{invalid' '[]'; do

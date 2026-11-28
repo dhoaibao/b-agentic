@@ -132,8 +132,6 @@ def safe_relative(relative: Any) -> str:
     parts = Path(relative).parts
     if Path(relative).is_absolute() or not parts or ".." in parts or parts[0] not in MANAGED_ROOTS:
         raise InstallError(f"unsafe managed path: {relative!r}")
-    if relative == "extensions/b-input-image-preview/index.ts":
-        return relative
     if parts[0] == "extensions" and (len(parts) < 2 or parts[1] not in ("b-agentic", "pi-permission-system")):
         raise InstallError(f"unsafe managed path: {relative!r}")
     return relative
@@ -482,9 +480,6 @@ class Installer:
         extension = self.source / "pi" / "extensions" / "b-agentic"
         for name in ("index.ts", "guard.mjs"):
             files[f"extensions/b-agentic/{name}"] = (extension / name).read_bytes()
-        files["extensions/b-input-image-preview/index.ts"] = (
-            self.source / "pi" / "extensions" / "b-input-image-preview" / "index.ts"
-        ).read_bytes()
         guard_text = (extension / "guard.mjs").read_text()
         for name in HOOK_FILES:
             if f'"{name}"' not in guard_text:
@@ -1229,7 +1224,6 @@ class Installer:
         for name in sorted(registry.get("workers", {})):
             files.append(f"agents/{name}.md")
         files.extend(("extensions/b-agentic/index.ts", "extensions/b-agentic/guard.mjs"))
-        files.append("extensions/b-input-image-preview/index.ts")
         files.extend(f"b-agentic/hooks/{name}" for name in HOOK_FILES)
         files.extend(
             f"b-agentic/bin/{path.name}"

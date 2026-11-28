@@ -4,7 +4,7 @@ b-agentic installs Claude Code by default (`./install.sh`) and treats Pi (`./ins
 first-class runtime across every main flow under the three-tier feature model
 ([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md),
 [ADR-032](../docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)). This folder holds the hand-written parts
-of the Pi runtime: the helper wrappers, two owned extensions, and the vendored Dracula theme (a Pi-only Tier 3 extra).
+of the Pi runtime: the helper wrappers, one owned extension, and the vendored Dracula theme (a Pi-only Tier 3 extra).
 Everything else Pi needs (kernel, skills, prompt templates, agents, permission, subagent, and MCP configuration) is
 rendered from the same sources as the Claude Code files when you install, and the rendered tree is never committed.
 
@@ -46,14 +46,6 @@ approved vendor installers write outside `~/.pi/agent`.
   proves that package is active, so after an upgrade confirm by hand: ask the model to run `sudo true` with its `bash`
   tool and expect a tool result that reports the permission denial, not a shell error (a `!` or RPC shell command does not
   exercise that package). Slash and RPC launches of a specialist are not covered by the subagent gate (see ADR-030).
-
-- `extensions/b-input-image-preview/index.ts`: a Pi-only Tier 3 `exclusive` extra installed to
-  `~/.pi/agent/extensions/b-input-image-preview/index.ts` as a sha256-tracked managed file (kept with a warning if
-  edited or unowned; replaced only by `--force`). Display-only: uses `lstat`-backed native path resolution (opens
-  handles with `O_NONBLOCK` and rejects non-regular files before reading, so FIFOs never block), renders framed thumbnails above the editor, and provides `/b-image [n]` without ever altering editor
-  text, history, or the submitted prompt; registers nothing outside the TUI or when `PI_INPUT_IMAGE_PREVIEW=off`, and
-  defers `/b-image` dispatch to invocation time so any extension command or prompt template (including late-discovered
-  templates) takes precedence. The installer treats it like any other managed file and does no Pi discovery checks: your own `index.js` in `~/.pi/agent/extensions/b-input-image-preview/` is shadowed by the installed `index.ts` without a warning. Before you return the checkout to a commit without this extension, run `./install.sh --runtime=pi --uninstall` from the current one: an older installer refuses a manifest that records the preview.
 
 - `themes/dracula.json`: vendored byte-for-byte from `dracula/pi-coding-agent` (MIT License) and installed to
   `~/.pi/agent/themes/dracula.json` as a sha256-tracked managed file. `settings.json` sets `"theme": "dracula"` only
@@ -99,9 +91,6 @@ Recording stats also remembers this checkout's path in `~/.pi/agent/b-agentic/ru
 - `tests/pi/guard-cases.mjs` runs the guard cases without Pi; `tests/pi/guard-probe.sh` drives real Pi with a scripted
   offline model (`PI_PROBE_REQUIRE=1` turns a skip into a failure; `PI_PROBE_NPM_DIR` points at a folder whose
   `node_modules` hold the packages).
-- `tests/pi/input-image-preview-probe.sh` runs offline unit cases (`tests/pi/input-image-preview-cases.ts`) and checks
-  non-TUI pass-through (skips without `pi` unless `PI_PROBE_REQUIRE=1`); thumbnail rendering, the `/b-image` popup, and
-  mouse handling require a real terminal and are not automated.
 - `tests/install/pi-install-probe.sh` runs under `scripts/validate-skills.sh --release` against a temporary home.
 - `PI_PROBE_NPM_DIR=DIR tests/pi/spike.sh` is the manual spike: run it by hand after every Pi or package upgrade, never in CI.
   `PI_SPIKE_CLASSIFIER=1 PI_SPIKE_MODEL=PROVIDER/MODEL` adds the classifier check with a real model; it prints the verdicts
