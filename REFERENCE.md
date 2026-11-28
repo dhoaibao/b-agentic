@@ -161,7 +161,8 @@ described in [pi/README.md](pi/README.md)). Features are classified in
 both), `adapted` (Tier 2, runtime-specific adapters under shared parity
 contracts), or `exclusive` (Tier 3 extras needing no parity: Claude-only Codex
 plugin, status line, `NotebookEdit`, and piped self-update; Pi-only Dracula
-theme, subagent config, classifier, and `/b-*` prompt templates):
+theme, `b-input-image-preview` extension, subagent config, classifier, and
+`/b-*` prompt templates):
 
 ```bash
 ./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
@@ -210,11 +211,18 @@ theme, subagent config, classifier, and `/b-*` prompt templates):
 - The Pi tree (kernel, skills, prompt templates, agents, permission and MCP
   configuration) is rendered at install time by
   `registry_sync.py --render pi` into a fresh folder outside the checkout and is
-  never committed. Hand-written parts live in `pi/` (wrappers and the guard
-  extension).
+  never committed. Hand-written parts live in `pi/` (wrappers, the guard and
+  input-image-preview extensions, and the Dracula theme).
 - Installed under `~/.pi/agent`: `skills/`, `prompts/`, `agents/`, `themes/`
   (`themes/dracula.json`, vendored from `dracula/pi-coding-agent`, MIT),
-  `extensions/b-agentic/`, and `b-agentic/{bin,hooks,references}`; the manifest
+  `extensions/b-agentic/`, `extensions/b-input-image-preview/index.ts` (a
+  Pi-only Tier 3 `exclusive` extra: display-only thumbnails above the editor
+  with `lstat`-backed native path resolution and `/b-image [n]`, never alters
+  editor text or prompts, registers nothing outside the TUI or with
+  `PI_INPUT_IMAGE_PREVIEW=off`, defers `/b-image` dispatch to invocation time
+  so any extension command or prompt template (including late-discovered ones)
+  takes precedence; sha256-owned without execution refusal. The installer treats it like any other managed file and does no Pi discovery checks: your own `index.js` in `~/.pi/agent/extensions/b-input-image-preview/` is shadowed by the installed `index.ts` without a warning. Before you return the checkout to a commit without this extension, run `./install.sh --runtime=pi --uninstall` from the current one: an older installer refuses a manifest that records the preview.), and
+  `b-agentic/{bin,hooks,references}`; the manifest
   `b-agentic/install.json` (which also records Pi's own `kit_seq`, `kit_date`,
   `kit_commit`, and `kit_dirty`, all four or none,
   [ADR-036](docs/decisions/ADR-036-run-stats-kit-version.md)); and entries merged into `AGENTS.md` (kernel block),
@@ -270,7 +278,11 @@ theme, subagent config, classifier, and `/b-*` prompt templates):
   `b-worker` and parallel worktree steps are supported via `subagent`
   ([ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)). Claude-only and
   Pi-only extras (`b-statusline`, `NotebookEdit`, Codex gate on Claude;
-  `dracula` theme and classifier config on Pi) stay `exclusive` Tier 3 extras
+  `dracula` theme, classifier config, and the display-only
+  `b-input-image-preview` extension at
+  `~/.pi/agent/extensions/b-input-image-preview/index.ts` (`/b-image [n]`,
+  `PI_INPUT_IMAGE_PREVIEW=off` opt-out, and untested TUI rendering/popup/mouse
+  on Pi) stay `exclusive` Tier 3 extras
   with no parity requirement ([ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)).
 - Known limits are in ADR-030's and ADR-032's Consequences. Under the
   maintenance gate in ADR-032, re-run `tests/pi/spike.sh` after any Pi or
@@ -662,7 +674,7 @@ policy and routing checks, the hook probe
 (`tests/snapshot/cli-probe.sh`), the status line probe
 (`tests/statusline/statusline-probe.sh`; the hook and status line probes also run under `bun` when it is installed), and the runtime instruction parity check
 (`tooling/validate/runtime_parity.py`).
-The Pi guard cases (`tests/pi/guard-cases.mjs`) run in the same pass, and `tests/pi/guard-probe.sh` drives real Pi when it is installed (it prints a skip line otherwise).
+The Pi guard cases (`tests/pi/guard-cases.mjs`) run in the same pass, and `tests/pi/guard-probe.sh` and `tests/pi/input-image-preview-probe.sh` drive real Pi when it is installed (both print a skip line otherwise; TUI thumbnail rendering, popup, and mouse handling require a real terminal and are not automated).
 `--release` (CI) adds the sandbox installer probes (`tests/install/claude-install-probe.sh` and `tests/install/pi-install-probe.sh`) and the RTK readiness check.
 `tests/pi/spike.sh` is the manual check after a Pi or package upgrade and never runs in CI.
 None needs Claude Code, credentials, or a network.

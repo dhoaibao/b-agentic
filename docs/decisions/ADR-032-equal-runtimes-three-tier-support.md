@@ -38,8 +38,10 @@ Claude Code stays the default runtime installed by `./install.sh`, and formalize
     permission packages), keeping canonical prompt `<!-- runtime: ... -->` markers within `MARKER_BUDGET` (10).
   - `exclusive` (Tier 3): ancillary extras intentionally built for one runtime or impossible to support on the other,
     requiring no cross-runtime parity (Claude-only: `plugin.codex-review` Codex gate, `b-statusline`, `NotebookEdit`,
-    piped self-update via `--update`/`--ref`; Pi-only: `pi/themes/dracula.json`, `pi-subagents` `subagent_config`,
-    `pi-permission-classifier`, and `/b-*` prompt templates).
+    piped self-update via `--update`/`--ref`; Pi-only: `pi/themes/dracula.json`, `pi/extensions/b-input-image-preview/index.ts`
+    (installed to `~/.pi/agent/extensions/b-input-image-preview/index.ts`, display-only thumbnails and `/b-image [n]`,
+    `lstat`-backed native path resolution, `PI_INPUT_IMAGE_PREVIEW=off` opt-out, with TUI rendering/popup/mouse untested automatically), `pi-subagents`
+    `subagent_config`, `pi-permission-classifier`, and `/b-*` prompt templates).
 - **Main-flow boundary:** all main-flow features—routing, `b-flow` lifecycle, `b-plan`, `b-research`, `b-debug`,
   `b-audit`, `b-agentic-audit`, `b-review`, `b-qa`, `b-commit`, `b-pr`, `b-worker` and `parallel_steps`/`parallel_checks`,
   state/artifact/snapshot integrity, and safety boundaries—must be `shared` or `adapted`, never `exclusive`.
@@ -75,7 +77,8 @@ Claude Code stays the default runtime installed by `./install.sh`, and formalize
 Evidence: [`references/capabilities.yaml`](../../references/capabilities.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
 [`tooling/validate/runtime_parity.py`](../../tooling/validate/runtime_parity.py),
-[`pi/extensions/b-agentic/guard.mjs`](../../pi/extensions/b-agentic/guard.mjs), and
+[`pi/extensions/b-agentic/guard.mjs`](../../pi/extensions/b-agentic/guard.mjs),
+[`pi/extensions/b-input-image-preview/index.ts`](../../pi/extensions/b-input-image-preview/index.ts), and
 [`tests/pi/spike.sh`](../../tests/pi/spike.sh).
 
 ## Rejected

@@ -516,8 +516,11 @@ argument-aware MCP gate, or persistent subagent store. On Claude Code, it does
 not ship themes,
 TUI widgets beyond the read-only `b-statusline` status line (refined 2026-11-07),
 notifications, a self-updating command, or third-party extension
-management (Pi ships the vendored `dracula` theme and classifier config as
-runtime-exclusive Tier 3 extras under
+management (Pi ships the vendored `dracula` theme, classifier config, and the
+display-only `b-input-image-preview` extension at
+`~/.pi/agent/extensions/b-input-image-preview/index.ts` (`/b-image [n]`,
+`PI_INPUT_IMAGE_PREVIEW=off` opt-out, and unautomated TUI rendering/popup/mouse
+handling) as runtime-exclusive Tier 3 extras under
 [ADR-032](ADR-032-equal-runtimes-three-tier-support.md)); Claude Code's own
 `AskUserQuestion`, todo list, and compaction cover
 what those extensions did. The repository does not promise detached background

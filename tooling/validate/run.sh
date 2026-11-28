@@ -186,6 +186,7 @@ start_probe statusline bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 start_probe state bash "$ROOT_DIR/tests/state/state-probe.sh"
 start_probe pi-guard-cases node "$ROOT_DIR/tests/pi/guard-cases.mjs"
 start_probe pi-guard bash "$ROOT_DIR/tests/pi/guard-probe.sh"
+start_probe pi-image-preview bash "$ROOT_DIR/tests/pi/input-image-preview-probe.sh"
 start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
 
 if [ "$run_release" -eq 1 ]; then
